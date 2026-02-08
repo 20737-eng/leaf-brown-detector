@@ -1,13 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
-import os
-import uuid
 
 app = Flask(__name__)
-
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route("/")
 def index():
@@ -16,22 +11,24 @@ def index():
 @app.route("/analyze", methods=["POST"])
 def analyze():
     if "image" not in request.files:
-        return jsonify({"error": "ไม่พบไฟล์ภาพ"})
+        return jsonify({"error": "ไม่พบไฟล์ภาพ"}), 400
 
     file = request.files["image"]
+
     if file.filename == "":
-        return jsonify({"error": "ชื่อไฟล์ว่าง"})
+        return jsonify({"error": "ชื่อไฟล์ว่าง"}), 400
 
-    filename = f"{uuid.uuid4().hex}.jpg"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
+    # อ่านไฟล์จาก memory (ไม่ save ลง disk)
+    file_bytes = np.frombuffer(file.read(), np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-    img = cv2.imread(filepath)
     if img is None:
-        return jsonify({"error": "ไม่สามารถอ่านไฟล์ภาพได้"})
+        return jsonify({"error": "ไม่สามารถอ่านไฟล์ภาพได้"}), 400
 
+    # แปลงเป็น HSV
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
+    # ช่วงสีน้ำตาล (ปรับได้)
     lower_brown = np.array([10, 50, 50])
     upper_brown = np.array([30, 255, 200])
 
@@ -39,10 +36,12 @@ def analyze():
 
     brown_pixels = cv2.countNonZero(mask)
     total_pixels = img.shape[0] * img.shape[1]
+
     percent = round((brown_pixels / total_pixels) * 100, 2)
 
-    return jsonify({"brown_percent": percent})
+    return jsonify({
+        "brown_percent": percent
+    })
 
-# ❗ สำคัญ: ห้ามใส่ port ตายตัว
 if __name__ == "__main__":
     app.run()
