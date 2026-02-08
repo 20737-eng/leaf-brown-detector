@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Leaf Brown Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<div class="container">
+
+    <h2>🍃 ตรวจสีน้ำตาลในใบไม้</h2>
+
+    <!-- input ซ่อน -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="fileInput" accept="image/*" style="display:none;">
+
+    <!-- ปุ่มแยก -->
+    <button onclick="openCamera()">📷 ถ่ายภาพใบไม้</button>
+    <button onclick="openGallery()" style="margin-top:10px;">🖼 เลือกรูปจากเครื่อง</button>
+
+    <div id="result"></div>
+
+</div>
+
+<script>
+function openCamera() {
+    document.getElementById("cameraInput").click();
+}
+
+function openGallery() {
+    document.getElementById("fileInput").click();
+}
+
+document.getElementById("cameraInput").addEventListener("change", function () {
+    analyzeImage(this.files[0]);
+});
+
+document.getElementById("fileInput").addEventListener("change", function () {
+    analyzeImage(this.files[0]);
+});
+
+function analyzeImage(file) {
+    const result = document.getElementById("result");
+
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    result.innerHTML = "⏳ กำลังวิเคราะห์...";
+
+    fetch("/analyze", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            result.innerHTML = "❌ " + data.error;
+        } else {
+            let percent = data.brown_percent;
+
+            let level = "🟢 ใบไม้ยังเขียว";
+            if (percent > 20 && percent <= 50) level = "🟡 ใบไม้เริ่มแห้ง";
+            if (percent > 50) level = "🔴 ใบไม้แห้งมาก";
+
+            result.innerHTML = `
+                🟤 สีน้ำตาล: <b>${percent}%</b><br>
+                สถานะ: <b>${level}</b>
+            `;
+        }
+    })
+    .catch(() => {
+        result.innerHTML = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อ";
+    });
+}
+</script>
+
+</body>
+</html>
